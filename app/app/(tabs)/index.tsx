@@ -1,4 +1,5 @@
 import { StyleSheet, TouchableOpacity } from "react-native";
+import { useRouter } from "expo-router";
 import { usePagesStore } from "@/store/pages";
 import { PageList } from "@/components/PageList";
 import { EmptyPageState } from "@/components/EmptyPageState";
@@ -7,16 +8,25 @@ import { useColorScheme } from "@/components/useColorScheme";
 import Colors from "@/constants/Colors";
 
 export default function HomeScreen() {
+  const router = useRouter();
   const pages = usePagesStore((state) => state.pages);
   const addPage = usePagesStore((state) => state.addPage);
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? "light"];
 
+  const handlePagePress = (pageId: string) => {
+    router.push(`/(tabs)/${pageId}`);
+  };
+
   return (
     <View style={styles.container}>
       <Text style={styles.header}>My Pages</Text>
       <View style={styles.listContainer}>
-        <PageList pages={pages} emptyComponent={<EmptyPageState />} />
+        <PageList
+          pages={pages}
+          onPagePress={handlePagePress}
+          emptyComponent={<EmptyPageState />}
+        />
       </View>
       <TouchableOpacity
         style={[styles.newPageButton, { backgroundColor: colors.tint }]}
