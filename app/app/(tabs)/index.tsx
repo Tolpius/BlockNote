@@ -15,7 +15,7 @@ export default function HomeScreen() {
   const colors = Colors[colorScheme ?? "light"];
 
   const handlePagePress = (pageId: string) => {
-    router.push(`/(tabs)/${pageId}`);
+    router.push(`/${pageId}`);
   };
 
   return (
