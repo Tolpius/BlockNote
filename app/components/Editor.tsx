@@ -5,6 +5,7 @@ import {
   TouchableOpacity,
   View as RNView,
 } from "react-native";
+import { SymbolView } from "expo-symbols";
 import { useState } from "react";
 import { usePagesStore, Page } from "@/store/pages";
 import { TextBlock } from "@/components/TextBlock";
@@ -12,10 +13,9 @@ import { Text, View } from "@/components/Themed";
 
 interface EditorProps {
   page: Page;
-  onDeletePage?: () => void;
 }
 
-export function Editor({ page, onDeletePage }: EditorProps) {
+export function Editor({ page }: EditorProps) {
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [editTitle, setEditTitle] = useState(page.title);
   const blocks = usePagesStore((state) => state.getPageBlocks(page.id));
@@ -54,14 +54,20 @@ export function Editor({ page, onDeletePage }: EditorProps) {
             <TouchableOpacity onPress={() => setIsEditingTitle(true)}>
               <Text style={styles.title}>{page.title}</Text>
             </TouchableOpacity>
-            {onDeletePage && (
-              <TouchableOpacity
-                style={styles.deleteButton}
-                onPress={onDeletePage}
-              >
-                <Text style={styles.deleteButtonText}>Delete</Text>
-              </TouchableOpacity>
-            )}
+            <TouchableOpacity
+              style={styles.editButton}
+              onPress={() => setIsEditingTitle(true)}
+            >
+              <SymbolView
+                name={{
+                  ios: "pencil",
+                  android: "edit",
+                  web: "edit",
+                }}
+                tintColor="#2f95dc"
+                size={18}
+              />
+            </TouchableOpacity>
           </RNView>
         )}
       </View>
@@ -116,17 +122,9 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     flex: 1,
   },
-  deleteButton: {
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    backgroundColor: "#ff3b30",
-    borderRadius: 4,
+  editButton: {
+    padding: 8,
     marginLeft: 12,
-  },
-  deleteButtonText: {
-    color: "#fff",
-    fontSize: 12,
-    fontWeight: "600",
   },
   editTitleContainer: {
     flexDirection: "row",

@@ -1,4 +1,4 @@
-import { StyleSheet, TouchableOpacity } from "react-native";
+import { Alert, StyleSheet, TouchableOpacity } from "react-native";
 import { useRouter } from "expo-router";
 import { usePagesStore } from "@/store/pages";
 import { PageList } from "@/components/PageList";
@@ -11,11 +11,32 @@ export default function HomeScreen() {
   const router = useRouter();
   const pages = usePagesStore((state) => state.pages);
   const addPage = usePagesStore((state) => state.addPage);
+  const deletePage = usePagesStore((state) => state.deletePage);
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? "light"];
 
   const handlePagePress = (pageId: string) => {
     router.push(`/${pageId}`);
+  };
+
+  const handleDeletePage = (pageId: string) => {
+    const page = pages.find((p) => p.id === pageId);
+    if (!page) return;
+
+    Alert.alert(
+      "Delete Page?",
+      `Are you sure you want to delete "${page.title}"? This cannot be undone.`,
+      [
+        { text: "Cancel", onPress: () => {} },
+        {
+          text: "Delete",
+          onPress: () => {
+            deletePage(pageId);
+          },
+          style: "destructive",
+        },
+      ],
+    );
   };
 
   return (
@@ -25,6 +46,7 @@ export default function HomeScreen() {
         <PageList
           pages={pages}
           onPagePress={handlePagePress}
+          onDeletePage={handleDeletePage}
           emptyComponent={<EmptyPageState />}
         />
       </View>

@@ -1,6 +1,7 @@
 import { StyleSheet, TextInput, TouchableOpacity } from "react-native";
+import { SymbolView } from "expo-symbols";
 import { usePagesStore, Block } from "@/store/pages";
-import { Text, View } from "@/components/Themed";
+import { View } from "@/components/Themed";
 
 interface TextBlockProps {
   block: Block;
@@ -25,7 +26,15 @@ export function TextBlock({ block }: TextBlockProps) {
         style={styles.deleteButton}
         onPress={() => deleteBlock(block.id)}
       >
-        <Text style={styles.deleteButtonText}>Delete</Text>
+        <SymbolView
+          name={{
+            ios: "trash.fill",
+            android: "delete",
+            web: "delete",
+          }}
+          tintColor="#999"
+          size={18}
+        />
       </TouchableOpacity>
     </View>
   );
@@ -49,10 +58,8 @@ const styles = StyleSheet.create({
   },
   deleteButton: {
     marginTop: 8,
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    backgroundColor: "#ff3b30",
-    borderRadius: 4,
+    paddingVertical: 8,
+    paddingHorizontal: 4,
     alignSelf: "flex-end",
   },
   deleteButtonText: {
