@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import * as db from "@/db/database";
 
 export type Page = {
   id: string;
@@ -15,13 +16,21 @@ export type Block = {
 
 interface PagesStore {
   pages: Page[];
-  addPage: (title?: string) => void;
-  deletePage: (id: string) => void;
-  updatePage: (id: string, title: string) => void;
   blocks: Block[];
-  addBlock: (pageId: string) => void;
-  updateBlock: (blockId: string, content: string) => void;
-  deleteBlock: (blockId: string) => void;
+  isInitialized: boolean;
+
+  // Initialization
+  initializeStore: () => Promise<void>;
+
+  // Page operations
+  addPage: (title?: string) => Promise<void>;
+  deletePage: (id: string) => Promise<void>;
+  updatePage: (id: string, title: string) => Promise<void>;
+
+  // Block operations
+  addBlock: (pageId: string) => Promise<void>;
+  updateBlock: (blockId: string, content: string) => Promise<void>;
+  deleteBlock: (blockId: string) => Promise<void>;
   getPageBlocks: (pageId: string) => Block[];
 }
 
@@ -30,58 +39,137 @@ function generateId(): string {
   return `item_${Date.now()}_${++idCounter}`;
 }
 
-const initialPages: Page[] = [
-  { id: generateId(), title: "Meeting Notes" },
-  { id: generateId(), title: "Ideas" },
-  { id: generateId(), title: "Shopping List" },
-];
-
 export const usePagesStore = create<PagesStore>((set, get) => ({
-  pages: initialPages,
-  addPage: (title = "Untitled") =>
-    set((state) => ({
-      pages: [...state.pages, { id: generateId(), title }],
-    })),
-  deletePage: (id) =>
-    set((state) => ({
-      pages: state.pages.filter((page) => page.id !== id),
-      blocks: state.blocks.filter((block) => block.pageId !== id),
-    })),
-  updatePage: (id, title) =>
-    set((state) => ({
-      pages: state.pages.map((page) =>
-        page.id === id ? { ...page, title } : page,
-      ),
-    })),
+  pages: [],
   blocks: [],
-  addBlock: (pageId) => {
-    const blocks = get().blocks;
-    const pageBlocks = blocks.filter((b) => b.pageId === pageId);
-    const nextOrder = pageBlocks.length;
+  isInitialized: false,
 
-    set((state) => ({
-      blocks: [
-        ...state.blocks,
-        {
-          id: generateId(),
-          pageId,
-          type: "text",
-          content: "",
-          order: nextOrder,
-        },
-      ],
-    }));
+  initializeStore: async () => {
+    try {
+      // Initialize database and create tables
+      await db.initializeDatabase();
+
+      // Load pages and blocks from database
+      const pages = await db.getAllPages();
+      const blocks = await db.getAllBlocks();
+
+      set({
+        pages,
+        blocks,
+        isInitialized: true,
+      });
+    } catch (error) {
+      console.error("Failed to initialize store:", error);
+      set({ isInitialized: true }); // Still mark as initialized to prevent infinite loading
+    }
   },
-  updateBlock: (blockId, content) =>
-    set((state) => ({
-      blocks: state.blocks.map((block) =>
-        block.id === blockId ? { ...block, content } : block,
-      ),
-    })),
-  deleteBlock: (blockId) =>
-    set((state) => ({
-      blocks: state.blocks.filter((block) => block.id !== blockId),
-    })),
+
+  addPage: async (title = "Untitled") => {
+    try {
+      const newPage: Page = {
+        id: generateId(),
+        title,
+      };
+
+      // Save to database first
+      await db.insertPage(newPage);
+
+      // Update state
+      set((state) => ({
+        pages: [...state.pages, newPage],
+      }));
+    } catch (error) {
+      console.error("Failed to add page:", error);
+    }
+  },
+
+  deletePage: async (id) => {
+    try {
+      // Delete from database first
+      await db.deletePage(id);
+
+      // Update state
+      set((state) => ({
+        pages: state.pages.filter((page) => page.id !== id),
+        blocks: state.blocks.filter((block) => block.pageId !== id),
+      }));
+    } catch (error) {
+      console.error("Failed to delete page:", error);
+    }
+  },
+
+  updatePage: async (id, title) => {
+    try {
+      // Update in database first
+      await db.updatePageTitle(id, title);
+
+      // Update state
+      set((state) => ({
+        pages: state.pages.map((page) =>
+          page.id === id ? { ...page, title } : page,
+        ),
+      }));
+    } catch (error) {
+      console.error("Failed to update page:", error);
+    }
+  },
+
+  addBlock: async (pageId) => {
+    try {
+      const blocks = get().blocks;
+      const pageBlocks = blocks.filter((b) => b.pageId === pageId);
+      const nextOrder = pageBlocks.length;
+
+      const newBlock: Block = {
+        id: generateId(),
+        pageId,
+        type: "text",
+        content: "",
+        order: nextOrder,
+      };
+
+      // Save to database first
+      await db.insertBlock(newBlock);
+
+      // Update state
+      set((state) => ({
+        blocks: [...state.blocks, newBlock],
+      }));
+    } catch (error) {
+      console.error("Failed to add block:", error);
+    }
+  },
+
+  updateBlock: async (blockId, content) => {
+    try {
+      // Update in database first
+      await db.updateBlockContent(blockId, content);
+
+      // Update state
+      set((state) => ({
+        blocks: state.blocks.map((block) =>
+          block.id === blockId ? { ...block, content } : block,
+        ),
+      }));
+    } catch (error) {
+      console.error("Failed to update block:", error);
+    }
+  },
+
+  deleteBlock: async (blockId) => {
+    try {
+      // Delete from database first
+      await db.deleteBlock(blockId);
+
+      // Update state
+      set((state) => ({
+        blocks: state.blocks.filter((block) => block.id !== blockId),
+      }));
+    } catch (error) {
+      console.error("Failed to delete block:", error);
+    }
+  },
+
   getPageBlocks: (pageId) => {
     const blocks = get().blocks;
     return blocks
