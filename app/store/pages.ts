@@ -12,10 +12,6 @@ export type Block = {
   type: "text";
   content: string;
   order: number;
-  format: "paragraph" | "heading1" | "heading2" | "quote";
-  isBold: boolean;
-  isItalic: boolean;
-  isUnderline: boolean;
 };
 
 interface PagesStore {
@@ -34,14 +30,6 @@ interface PagesStore {
   // Block operations
   addBlock: (pageId: string) => Promise<void>;
   updateBlock: (blockId: string, content: string) => Promise<void>;
-  updateBlockFormat: (
-    blockId: string,
-    format: Block["format"],
-  ) => Promise<void>;
-  toggleBlockMark: (
-    blockId: string,
-    mark: "isBold" | "isItalic" | "isUnderline",
-  ) => Promise<void>;
   deleteBlock: (blockId: string) => Promise<void>;
   getPageBlocks: (pageId: string) => Block[];
 }
@@ -138,10 +126,6 @@ export const usePagesStore = create<PagesStore>((set, get) => ({
         type: "text",
         content: "",
         order: nextOrder,
-        format: "paragraph",
-        isBold: false,
-        isItalic: false,
-        isUnderline: false,
       };
 
       // Save to database first
@@ -169,39 +153,6 @@ export const usePagesStore = create<PagesStore>((set, get) => ({
       }));
     } catch (error) {
       console.error("Failed to update block:", error);
-    }
-  },
-
-  updateBlockFormat: async (blockId, format) => {
-    try {
-      await db.updateBlockStyle(blockId, { format });
-
-      set((state) => ({
-        blocks: state.blocks.map((block) =>
-          block.id === blockId ? { ...block, format } : block,
-        ),
-      }));
-    } catch (error) {
-      console.error("Failed to update block format:", error);
-    }
-  },
-
-  toggleBlockMark: async (blockId, mark) => {
-    const currentBlock = get().blocks.find((block) => block.id === blockId);
-    if (!currentBlock) return;
-
-    const nextValue = !currentBlock[mark];
-
-    try {
-      await db.updateBlockStyle(blockId, { [mark]: nextValue });
-
-      set((state) => ({
-        blocks: state.blocks.map((block) =>
-          block.id === blockId ? { ...block, [mark]: nextValue } : block,
-        ),
-      }));
-    } catch (error) {
-      console.error("Failed to update block mark:", error);
     }
   },
 

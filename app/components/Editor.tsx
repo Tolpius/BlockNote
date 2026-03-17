@@ -1,5 +1,5 @@
 import {
-  FlatList,
+  KeyboardAvoidingView,
   Platform,
   StyleSheet,
   TextInput,
@@ -8,13 +8,28 @@ import {
 } from "react-native";
 import { SymbolView } from "expo-symbols";
 import { useRouter } from "expo-router";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { usePagesStore, Page } from "@/store/pages";
-import { TextBlock } from "@/components/TextBlock";
 import { Text, View } from "@/components/Themed";
+import {
+  RichText,
+  Toolbar,
+  useEditorBridge,
+  useEditorContent,
+  TenTapStartKit,
+} from "@10play/tentap-editor";
 
 interface EditorProps {
   page: Page;
+}
+
+function parseInitialContent(raw: string): string | object {
+  if (!raw) return "";
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return raw;
+  }
 }
 
 export function Editor({ page }: EditorProps) {
@@ -22,8 +37,36 @@ export function Editor({ page }: EditorProps) {
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [editTitle, setEditTitle] = useState(page.title);
   const blocks = usePagesStore((state) => state.getPageBlocks(page.id));
-  const addBlock = usePagesStore((state) => state.addBlock);
+  const updateBlock = usePagesStore((state) => state.updateBlock);
   const updatePage = usePagesStore((state) => state.updatePage);
+
+  const masterBlock = blocks[0];
+
+  // Refs so the save effect never has stale values without re-subscribing
+  const masterBlockRef = useRef(masterBlock);
+  masterBlockRef.current = masterBlock;
+  const updateBlockRef = useRef(updateBlock);
+  updateBlockRef.current = updateBlock;
+
+  const editor = useEditorBridge({
+    autofocus: false,
+    avoidIosKeyboard: true,
+    initialContent: parseInitialContent(masterBlock?.content ?? ""),
+    bridgeExtensions: TenTapStartKit,
+  });
+
+  // Debounced (500 ms) content from the WebView – only fires when user types
+  const content = useEditorContent(editor, {
+    type: "json",
+    debounceInterval: 500,
+  });
+
+  useEffect(() => {
+    if (content === undefined) return;
+    const block = masterBlockRef.current;
+    if (!block) return;
+    updateBlockRef.current(block.id, JSON.stringify(content));
+  }, [content]);
 
   const handleSaveTitle = () => {
     if (editTitle.trim()) {
@@ -32,8 +75,14 @@ export function Editor({ page }: EditorProps) {
     }
   };
 
+  if (!masterBlock) return null;
+
   return (
-    <View style={styles.container}>
+    <KeyboardAvoidingView
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      style={styles.container}
+    >
+      {/* Header */}
       <View style={styles.headerContainer}>
         {isEditingTitle ? (
           <RNView style={styles.editTitleContainer}>
@@ -88,38 +137,16 @@ export function Editor({ page }: EditorProps) {
         )}
       </View>
 
+      {/* Document canvas */}
       <View style={styles.documentShell}>
         <View style={styles.documentCard}>
-          <FlatList
-            data={blocks}
-            keyExtractor={(item) => item.id}
-            style={styles.list}
-            contentContainerStyle={styles.listContent}
-            renderItem={({ item }) => <TextBlock block={item} />}
-            ListHeaderComponent={<View style={styles.documentTopSpacer} />}
-            ListEmptyComponent={
-              <View style={styles.emptyContainer}>
-                <Text style={styles.emptyText}>Start your document</Text>
-                <TouchableOpacity
-                  style={styles.addButton}
-                  onPress={() => addBlock(page.id)}
-                >
-                  <Text style={styles.addButtonText}>+ Add Block</Text>
-                </TouchableOpacity>
-              </View>
-            }
-            ListFooterComponent={
-              <TouchableOpacity
-                style={styles.addButton}
-                onPress={() => addBlock(page.id)}
-              >
-                <Text style={styles.addButtonText}>+ Add Block</Text>
-              </TouchableOpacity>
-            }
-          />
+          <RichText editor={editor} style={styles.richText} />
         </View>
       </View>
-    </View>
+
+      {/* Formatting toolbar – floats above keyboard */}
+      <Toolbar editor={editor} />
+    </KeyboardAvoidingView>
   );
 }
 
@@ -183,9 +210,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "600",
   },
-  list: {
-    flex: 1,
-  },
   documentShell: {
     flex: 1,
     paddingHorizontal: 12,
@@ -200,6 +224,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#ffffff",
     borderWidth: 1,
     borderColor: "#e8e8e8",
+    overflow: "hidden",
     ...(Platform.OS === "ios"
       ? {
           shadowColor: "#000",
@@ -209,46 +234,7 @@ const styles = StyleSheet.create({
         }
       : { elevation: 2 }),
   },
-  listContent: {
-    flexGrow: 1,
-    paddingHorizontal: 20,
-    paddingVertical: 18,
-  },
-  documentTopSpacer: {
-    height: 4,
-  },
-  emptyContainer: {
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 24,
-  },
-  emptyText: {
-    fontSize: 16,
-    marginBottom: 16,
-    opacity: 0.6,
-  },
-  addButton: {
-    marginTop: 12,
-    marginBottom: 4,
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    backgroundColor: "#1b7fca",
-    borderRadius: 8,
-    alignItems: "center",
-    alignSelf: "center",
-    minWidth: 150,
-    ...(Platform.OS === "ios"
-      ? {
-          shadowColor: "#000",
-          shadowOpacity: 0.1,
-          shadowRadius: 4,
-          shadowOffset: { width: 0, height: 2 },
-        }
-      : { elevation: 1 }),
-  },
-  addButtonText: {
-    color: "#fff",
-    fontSize: 14,
-    fontWeight: "600",
+  richText: {
+    flex: 1,
   },
 });
