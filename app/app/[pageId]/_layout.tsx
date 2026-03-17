@@ -4,9 +4,7 @@ export default function PageLayout() {
   return (
     <Stack
       screenOptions={{
-        headerShown: true,
-        title: "",
-        headerBackTitle: "Back",
+        headerShown: false,
       }}
     />
   );

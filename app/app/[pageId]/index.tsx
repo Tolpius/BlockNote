@@ -1,5 +1,6 @@
 import { StyleSheet } from "react-native";
 import { useLocalSearchParams } from "expo-router";
+import { useEffect } from "react";
 import { usePagesStore } from "@/store/pages";
 import { Editor } from "@/components/Editor";
 import { Text, View } from "@/components/Themed";
@@ -15,10 +16,11 @@ export default function PageDetailScreen() {
   // Get blocks for the page
   const blocks = usePagesStore((state) => state.getPageBlocks(page?.id || ""));
 
-  // Initialize with empty block on first load if needed
-  if (page && blocks.length === 0) {
-    addBlock(page.id);
-  }
+  useEffect(() => {
+    if (page && blocks.length === 0) {
+      addBlock(page.id);
+    }
+  }, [addBlock, blocks.length, page]);
 
   // Render page not found
   if (!page) {
