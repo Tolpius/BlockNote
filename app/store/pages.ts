@@ -34,7 +34,10 @@ interface PagesStore {
   // Block operations
   addBlock: (pageId: string) => Promise<void>;
   updateBlock: (blockId: string, content: string) => Promise<void>;
-  updateBlockFormat: (blockId: string, format: Block["format"]) => Promise<void>;
+  updateBlockFormat: (
+    blockId: string,
+    format: Block["format"],
+  ) => Promise<void>;
   toggleBlockMark: (
     blockId: string,
     mark: "isBold" | "isItalic" | "isUnderline",

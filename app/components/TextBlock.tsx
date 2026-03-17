@@ -17,7 +17,7 @@ const BLOCK_FORMATS: Array<{ label: string; value: Block["format"] }> = [
   { label: "P", value: "paragraph" },
   { label: "H1", value: "heading1" },
   { label: "H2", value: "heading2" },
-  { label: "\"", value: "quote" },
+  { label: '"', value: "quote" },
 ];
 
 export function TextBlock({ block }: TextBlockProps) {
@@ -47,7 +47,10 @@ export function TextBlock({ block }: TextBlockProps) {
             <Text style={styles.markButtonText}>B</Text>
           </Pressable>
           <Pressable
-            style={[styles.markButton, block.isItalic && styles.markButtonActive]}
+            style={[
+              styles.markButton,
+              block.isItalic && styles.markButtonActive,
+            ]}
             onPress={() => toggleBlockMark(block.id, "isItalic")}
           >
             <Text style={styles.markButtonText}>I</Text>
@@ -69,7 +72,8 @@ export function TextBlock({ block }: TextBlockProps) {
               key={formatOption.value}
               style={[
                 styles.formatButton,
-                block.format === formatOption.value && styles.formatButtonActive,
+                block.format === formatOption.value &&
+                  styles.formatButtonActive,
               ]}
               onPress={() => updateBlockFormat(block.id, formatOption.value)}
             >
