@@ -1,14 +1,62 @@
-import { StyleSheet } from 'react-native';
+import { Alert, StyleSheet, TouchableOpacity } from "react-native";
+import { useRouter } from "expo-router";
+import { usePagesStore } from "@/store/pages";
+import { PageList } from "@/components/PageList";
+import { EmptyPageState } from "@/components/EmptyPageState";
+import { Text, View } from "@/components/Themed";
+import { useColorScheme } from "@/components/useColorScheme";
+import Colors from "@/constants/Colors";
 
-import EditScreenInfo from '@/components/EditScreenInfo';
-import { Text, View } from '@/components/Themed';
+export default function HomeScreen() {
+  const router = useRouter();
+  const pages = usePagesStore((state) => state.pages);
+  const addPage = usePagesStore((state) => state.addPage);
+  const deletePage = usePagesStore((state) => state.deletePage);
+  const colorScheme = useColorScheme();
+  const colors = Colors[colorScheme ?? "light"];
 
-export default function TabOneScreen() {
+  const handlePagePress = (pageId: string) => {
+    router.push(`/${pageId}`);
+  };
+
+  const handleDeletePage = (pageId: string) => {
+    const page = pages.find((p) => p.id === pageId);
+    if (!page) return;
+
+    Alert.alert(
+      "Delete Page?",
+      `Are you sure you want to delete "${page.title}"? This cannot be undone.`,
+      [
+        { text: "Cancel", onPress: () => {} },
+        {
+          text: "Delete",
+          onPress: () => {
+            deletePage(pageId);
+          },
+          style: "destructive",
+        },
+      ],
+    );
+  };
+
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Tab One</Text>
-      <View style={styles.separator} lightColor="#eee" darkColor="rgba(255,255,255,0.1)" />
-      <EditScreenInfo path="app/(tabs)/index.tsx" />
+      <Text style={styles.header}>My Pages</Text>
+      <View style={styles.listContainer}>
+        <PageList
+          pages={pages}
+          onPagePress={handlePagePress}
+          onDeletePage={handleDeletePage}
+          emptyComponent={<EmptyPageState />}
+        />
+      </View>
+      <TouchableOpacity
+        style={[styles.newPageButton, { backgroundColor: colors.tint }]}
+        onPress={() => addPage()}
+        activeOpacity={0.7}
+      >
+        <Text style={styles.newPageButtonText}>+ New Page</Text>
+      </TouchableOpacity>
     </View>
   );
 }
@@ -16,16 +64,28 @@ export default function TabOneScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
-  title: {
-    fontSize: 20,
-    fontWeight: 'bold',
+  header: {
+    fontSize: 24,
+    fontWeight: "bold",
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 12,
   },
-  separator: {
-    marginVertical: 30,
-    height: 1,
-    width: '80%',
+  listContainer: {
+    flex: 1,
+  },
+  newPageButton: {
+    marginHorizontal: 16,
+    marginVertical: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    alignItems: "center",
+  },
+  newPageButtonText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "600",
   },
 });
