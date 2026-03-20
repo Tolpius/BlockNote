@@ -333,6 +333,53 @@ export function Editor({ page }: EditorProps) {
     editor.setContent(nextDoc);
   };
 
+  const handleMoveActiveBlockUp = async () => {
+    const rawDoc = await editor.getJSON();
+    const doc = isDoc(rawDoc) ? rawDoc : latestDocRef.current;
+    const nodes = [...(doc.content ?? [])];
+    if (nodes.length <= 1) return;
+
+    const targetIndex =
+      activeBlockIndex >= 0 ? activeBlockIndex : nodes.length - 1;
+    if (targetIndex <= 0) return;
+
+    [nodes[targetIndex - 1], nodes[targetIndex]] = [
+      nodes[targetIndex],
+      nodes[targetIndex - 1],
+    ];
+
+    const nextDoc: TiptapDoc = { type: "doc", content: nodes };
+    latestDocRef.current = nextDoc;
+    editor.setContent(nextDoc);
+  };
+
+  const handleMoveActiveBlockDown = async () => {
+    const rawDoc = await editor.getJSON();
+    const doc = isDoc(rawDoc) ? rawDoc : latestDocRef.current;
+    const nodes = [...(doc.content ?? [])];
+    if (nodes.length <= 1) return;
+
+    const targetIndex =
+      activeBlockIndex >= 0 ? activeBlockIndex : nodes.length - 1;
+    if (targetIndex < 0 || targetIndex >= nodes.length - 1) return;
+
+    [nodes[targetIndex], nodes[targetIndex + 1]] = [
+      nodes[targetIndex + 1],
+      nodes[targetIndex],
+    ];
+
+    const nextDoc: TiptapDoc = { type: "doc", content: nodes };
+    latestDocRef.current = nextDoc;
+    editor.setContent(nextDoc);
+  };
+
+  const canMoveActiveBlockUp =
+    latestDocRef.current.content.length > 1 && activeBlockIndex > 0;
+  const canMoveActiveBlockDown =
+    latestDocRef.current.content.length > 1 &&
+    activeBlockIndex >= 0 &&
+    activeBlockIndex < latestDocRef.current.content.length - 1;
+
   const canDeleteActiveBlock = !(
     latestDocRef.current.content.length <= 1 &&
     (activeNode?.type === "paragraph" || !activeNode?.type)
@@ -424,6 +471,42 @@ export function Editor({ page }: EditorProps) {
               <SymbolView
                 name={{ ios: "plus", android: "add", web: "add" }}
                 tintColor="#1b7fca"
+                size={16}
+              />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.blockActionButton,
+                !canMoveActiveBlockUp && styles.blockActionButtonDisabled,
+              ]}
+              onPress={handleMoveActiveBlockUp}
+              disabled={!canMoveActiveBlockUp}
+            >
+              <SymbolView
+                name={{
+                  ios: "arrow.up",
+                  android: "arrow_upward",
+                  web: "arrow_upward",
+                }}
+                tintColor={canMoveActiveBlockUp ? "#1b7fca" : "#b8b8b8"}
+                size={16}
+              />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.blockActionButton,
+                !canMoveActiveBlockDown && styles.blockActionButtonDisabled,
+              ]}
+              onPress={handleMoveActiveBlockDown}
+              disabled={!canMoveActiveBlockDown}
+            >
+              <SymbolView
+                name={{
+                  ios: "arrow.down",
+                  android: "arrow_downward",
+                  web: "arrow_downward",
+                }}
+                tintColor={canMoveActiveBlockDown ? "#1b7fca" : "#b8b8b8"}
                 size={16}
               />
             </TouchableOpacity>
