@@ -10,20 +10,55 @@ interface PageListProps {
   emptyComponent?: React.ReactNode;
 }
 
+type PageRow = {
+  page: Page;
+  depth: number;
+};
+
+function buildPageRows(pages: Page[]): PageRow[] {
+  const childrenByParent = new Map<string | null, Page[]>();
+
+  for (const page of pages) {
+    const key = page.parentId ?? null;
+    const list = childrenByParent.get(key) ?? [];
+    list.push(page);
+    childrenByParent.set(key, list);
+  }
+
+  const sortByTitle = (a: Page, b: Page) => a.title.localeCompare(b.title);
+  for (const [, list] of childrenByParent) {
+    list.sort(sortByTitle);
+  }
+
+  const rows: PageRow[] = [];
+  const visit = (parentId: string | null, depth: number) => {
+    const children = childrenByParent.get(parentId) ?? [];
+    for (const child of children) {
+      rows.push({ page: child, depth });
+      visit(child.id, depth + 1);
+    }
+  };
+
+  visit(null, 0);
+  return rows;
+}
+
 export function PageList({
   pages,
   onPagePress,
   onDeletePage,
   emptyComponent,
 }: PageListProps) {
+  const rows = buildPageRows(pages);
+
   if (pages.length === 0 && emptyComponent) {
     return <>{emptyComponent}</>;
   }
 
   return (
     <FlatList
-      data={pages}
-      keyExtractor={(item) => item.id}
+      data={rows}
+      keyExtractor={(item) => item.page.id}
       renderItem={({ item }) => (
         <View
           style={styles.pageItem}
@@ -31,15 +66,20 @@ export function PageList({
           darkColor="rgba(255, 255, 255, 0.1)"
         >
           <Text
-            style={styles.pageTitle}
-            onPress={() => onPagePress?.(item.id)}
+            style={[
+              styles.pageTitle,
+              { marginLeft: item.depth * 16 },
+              item.depth > 0 && styles.subPageTitle,
+            ]}
+            onPress={() => onPagePress?.(item.page.id)}
           >
-            • {item.title}
+            {item.depth > 0 ? "↳ " : "• "}
+            {item.page.title}
           </Text>
           {onDeletePage && (
             <TouchableOpacity
               style={styles.deleteButton}
-              onPress={() => onDeletePage(item.id)}
+              onPress={() => onDeletePage(item.page.id)}
             >
               <SymbolView
                 name={{
@@ -74,6 +114,9 @@ const styles = StyleSheet.create({
     fontSize: 16,
     lineHeight: 24,
     flex: 1,
+  },
+  subPageTitle: {
+    opacity: 0.9,
   },
   deleteButton: {
     padding: 8,

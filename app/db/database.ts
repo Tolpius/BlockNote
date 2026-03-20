@@ -11,6 +11,17 @@ async function getDatabase(): Promise<SQLite.SQLiteDatabase> {
   return db;
 }
 
+async function ensurePagesColumns(database: SQLite.SQLiteDatabase) {
+  const columns = await database.getAllAsync<{ name: string }>(
+    "PRAGMA table_info(pages);",
+  );
+  const existing = new Set(columns.map((col) => col.name));
+
+  if (!existing.has("parentId")) {
+    await database.execAsync("ALTER TABLE pages ADD COLUMN parentId TEXT;");
+  }
+}
+
 export async function initializeDatabase(): Promise<void> {
   const database = await getDatabase();
 
@@ -20,9 +31,12 @@ export async function initializeDatabase(): Promise<void> {
     CREATE TABLE IF NOT EXISTS pages (
       id TEXT PRIMARY KEY,
       title TEXT NOT NULL,
+      parentId TEXT,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
   `);
+
+  await ensurePagesColumns(database);
 
   await database.execAsync(`
     CREATE TABLE IF NOT EXISTS blocks (
@@ -40,7 +54,7 @@ export async function initializeDatabase(): Promise<void> {
 export async function getAllPages(): Promise<Page[]> {
   const database = await getDatabase();
   const result = await database.getAllAsync(
-    "SELECT id, title FROM pages ORDER BY created_at DESC;",
+    "SELECT id, title, parentId FROM pages ORDER BY created_at DESC;",
   );
   return result as Page[];
 }
@@ -64,10 +78,10 @@ export async function getAllBlocks(): Promise<Block[]> {
 
 export async function insertPage(page: Page): Promise<void> {
   const database = await getDatabase();
-  await database.runAsync("INSERT INTO pages (id, title) VALUES (?, ?);", [
-    page.id,
-    page.title,
-  ]);
+  await database.runAsync(
+    "INSERT INTO pages (id, title, parentId) VALUES (?, ?, ?);",
+    [page.id, page.title, page.parentId],
+  );
 }
 
 export async function updatePageTitle(
@@ -85,6 +99,21 @@ export async function deletePage(id: string): Promise<void> {
   const database = await getDatabase();
   await database.runAsync("DELETE FROM blocks WHERE pageId = ?;", [id]);
   await database.runAsync("DELETE FROM pages WHERE id = ?;", [id]);
+}
+
+export async function deletePages(ids: string[]): Promise<void> {
+  if (ids.length === 0) return;
+  const database = await getDatabase();
+
+  const placeholders = ids.map(() => "?").join(",");
+  await database.runAsync(
+    `DELETE FROM blocks WHERE pageId IN (${placeholders});`,
+    ids,
+  );
+  await database.runAsync(
+    `DELETE FROM pages WHERE id IN (${placeholders});`,
+    ids,
+  );
 }
 
 export async function insertBlock(block: Block): Promise<void> {

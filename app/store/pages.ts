@@ -4,6 +4,7 @@ import * as db from "@/db/database";
 export type Page = {
   id: string;
   title: string;
+  parentId: string | null;
 };
 
 export type Block = {
@@ -23,7 +24,7 @@ interface PagesStore {
   initializeStore: () => Promise<void>;
 
   // Page operations
-  addPage: (title?: string) => Promise<void>;
+  addPage: (title?: string, parentId?: string | null) => Promise<Page | null>;
   deletePage: (id: string) => Promise<void>;
   updatePage: (id: string, title: string) => Promise<void>;
 
@@ -64,11 +65,12 @@ export const usePagesStore = create<PagesStore>((set, get) => ({
     }
   },
 
-  addPage: async (title = "Untitled") => {
+  addPage: async (title = "Untitled", parentId = null) => {
     try {
       const newPage: Page = {
         id: generateId(),
         title,
+        parentId,
       };
 
       // Save to database first
@@ -78,20 +80,39 @@ export const usePagesStore = create<PagesStore>((set, get) => ({
       set((state) => ({
         pages: [...state.pages, newPage],
       }));
+
+      return newPage;
     } catch (error) {
       console.error("Failed to add page:", error);
+      return null;
     }
   },
 
   deletePage: async (id) => {
     try {
-      // Delete from database first
-      await db.deletePage(id);
+      const state = get();
+
+      const gatherDescendants = (pageId: string): string[] => {
+        const children = state.pages
+          .filter((p) => p.parentId === pageId)
+          .map((p) => p.id);
+
+        return children.flatMap((childId) => [
+          childId,
+          ...gatherDescendants(childId),
+        ]);
+      };
+
+      const pageIdsToDelete = [id, ...gatherDescendants(id)];
+
+      await db.deletePages(pageIdsToDelete);
 
       // Update state
       set((state) => ({
-        pages: state.pages.filter((page) => page.id !== id),
-        blocks: state.blocks.filter((block) => block.pageId !== id),
+        pages: state.pages.filter((page) => !pageIdsToDelete.includes(page.id)),
+        blocks: state.blocks.filter(
+          (block) => !pageIdsToDelete.includes(block.pageId),
+        ),
       }));
     } catch (error) {
       console.error("Failed to delete page:", error);
