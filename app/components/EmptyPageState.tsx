@@ -5,7 +5,9 @@ export function EmptyPageState() {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>No pages yet</Text>
-      <Text style={styles.subtitle}>Create your first page</Text>
+      <Text style={styles.subtitle}>
+        Create your first page to start your workspace
+      </Text>
     </View>
   );
 }
@@ -16,14 +18,16 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     paddingVertical: 40,
+    paddingHorizontal: 20,
   },
   title: {
-    fontSize: 18,
-    fontWeight: "600",
+    fontSize: 22,
+    fontWeight: "700",
     marginBottom: 8,
   },
   subtitle: {
-    fontSize: 14,
-    opacity: 0.6,
+    fontSize: 15,
+    opacity: 0.65,
+    textAlign: "center",
   },
 });

@@ -1,19 +1,26 @@
-import { Platform, StyleSheet, TouchableOpacity } from "react-native";
+import { useEffect, useMemo, useState } from "react";
+import {
+  Platform,
+  StyleSheet,
+  TouchableOpacity,
+  View as RNView,
+} from "react-native";
 import { SymbolView } from "expo-symbols";
-import DraggableFlatList, {
+import {
   NestableDraggableFlatList,
   NestableScrollContainer,
   RenderItemParams,
   ScaleDecorator,
 } from "react-native-draggable-flatlist";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
-import { Text, View } from "@/components/Themed";
+import { Text } from "@/components/Themed";
 import { Page } from "@/store/pages";
 
 interface PageListProps {
   pages: Page[];
   onPagePress?: (pageId: string) => void;
   onDeletePage?: (pageId: string) => void;
+  onAddSubpage?: (parentId: string) => void;
   onReorderPages?: (parentId: string | null, pageIds: string[]) => void;
   onReorderRootPages?: (pageIds: string[]) => void;
   emptyComponent?: React.ReactNode;
@@ -47,16 +54,43 @@ export function PageList({
   pages,
   onPagePress,
   onDeletePage,
+  onAddSubpage,
   onReorderPages,
   onReorderRootPages,
   emptyComponent,
 }: PageListProps) {
-  const pagesByParent = buildPagesByParent(pages);
-  const rootPages = pagesByParent.get(null) ?? [];
+  const pagesByParent = useMemo(() => buildPagesByParent(pages), [pages]);
+  const [collapsedById, setCollapsedById] = useState<Record<string, boolean>>(
+    {},
+  );
+
+  useEffect(() => {
+    // Keep only collapse states for pages that still exist.
+    setCollapsedById((prev) => {
+      const existingIds = new Set(pages.map((page) => page.id));
+      const next: Record<string, boolean> = {};
+
+      for (const [id, collapsed] of Object.entries(prev)) {
+        if (existingIds.has(id)) {
+          next[id] = collapsed;
+        }
+      }
+
+      return next;
+    });
+  }, [pages]);
 
   if (pages.length === 0 && emptyComponent) {
     return <>{emptyComponent}</>;
   }
+
+  const hasChildren = (pageId: string) =>
+    (pagesByParent.get(pageId)?.length ?? 0) > 0;
+  const isCollapsed = (pageId: string) => collapsedById[pageId] === true;
+
+  const toggleCollapsed = (pageId: string) => {
+    setCollapsedById((prev) => ({ ...prev, [pageId]: !prev[pageId] }));
+  };
 
   const handleReorder = (parentId: string | null, pageIds: string[]) => {
     onReorderPages?.(parentId, pageIds);
@@ -76,22 +110,55 @@ export function PageList({
     drag?: () => void;
     isActive?: boolean;
   }) => (
-    <View
-      style={[styles.pageItem, isActive && styles.activePageItem]}
-      lightColor="#f5f5f5"
-      darkColor="rgba(255, 255, 255, 0.1)"
+    <RNView
+      style={[
+        styles.pageItem,
+        { marginLeft: depth * 14 },
+        isActive && styles.activePageItem,
+      ]}
     >
-      <Text
-        style={[
-          styles.pageTitle,
-          { marginLeft: depth * 16 },
-          depth > 0 && styles.subPageTitle,
-        ]}
-        onPress={() => onPagePress?.(item.id)}
-      >
-        {depth > 0 ? "↳ " : "• "}
-        {item.title}
-      </Text>
+      <RNView style={styles.rowLeft}>
+        {hasChildren(item.id) ? (
+          <TouchableOpacity
+            style={styles.collapseButton}
+            onPress={() => toggleCollapsed(item.id)}
+          >
+            <SymbolView
+              name={{
+                ios: isCollapsed(item.id) ? "chevron.right" : "chevron.down",
+                android: isCollapsed(item.id) ? "chevron_right" : "expand_more",
+                web: isCollapsed(item.id) ? "chevron_right" : "expand_more",
+              }}
+              tintColor="#8a8a8f"
+              size={18}
+            />
+          </TouchableOpacity>
+        ) : (
+          <TouchableOpacity
+            style={styles.collapseButton}
+            onPress={() => toggleCollapsed(item.id)}
+          >
+            <SymbolView
+              name={{
+                ios: isCollapsed(item.id) ? "chevron.right" : "chevron.down",
+                android: isCollapsed(item.id) ? "chevron_right" : "expand_more",
+                web: isCollapsed(item.id) ? "chevron_right" : "expand_more",
+              }}
+              tintColor="#c3c3c8"
+              size={18}
+            />
+          </TouchableOpacity>
+        )}
+
+        <TouchableOpacity
+          style={styles.titlePressable}
+          onPress={() => onPagePress?.(item.id)}
+        >
+          <Text style={[styles.pageTitle, depth > 0 && styles.subPageTitle]}>
+            {item.title}
+          </Text>
+        </TouchableOpacity>
+      </RNView>
 
       {drag && (
         <TouchableOpacity style={styles.dragHandle} onLongPress={drag}>
@@ -103,6 +170,19 @@ export function PageList({
             }}
             tintColor="#999"
             size={20}
+          />
+        </TouchableOpacity>
+      )}
+
+      {onAddSubpage && (
+        <TouchableOpacity
+          style={styles.inlineAddSubpageButton}
+          onPress={() => onAddSubpage(item.id)}
+        >
+          <SymbolView
+            name={{ ios: "plus", android: "add", web: "add" }}
+            tintColor="#7b7b81"
+            size={18}
           />
         </TouchableOpacity>
       )}
@@ -123,7 +203,7 @@ export function PageList({
           />
         </TouchableOpacity>
       )}
-    </View>
+    </RNView>
   );
 
   const renderBranch = (parentId: string | null, depth: number) => {
@@ -132,10 +212,12 @@ export function PageList({
 
     if (Platform.OS === "web") {
       return siblings.map((item) => (
-        <View key={item.id}>
+        <RNView key={item.id}>
           {renderRow({ item, depth })}
-          {renderBranch(item.id, depth + 1)}
-        </View>
+          {hasChildren(item.id) && !isCollapsed(item.id)
+            ? renderBranch(item.id, depth + 1)
+            : null}
+        </RNView>
       ));
     }
 
@@ -146,10 +228,12 @@ export function PageList({
         keyExtractor={(item) => item.id}
         renderItem={({ item, drag, isActive }: RenderItemParams<Page>) => (
           <ScaleDecorator>
-            <View>
+            <RNView>
               {renderRow({ item, depth, drag, isActive })}
-              {renderBranch(item.id, depth + 1)}
-            </View>
+              {hasChildren(item.id) && !isCollapsed(item.id)
+                ? renderBranch(item.id, depth + 1)
+                : null}
+            </RNView>
           </ScaleDecorator>
         )}
         onDragEnd={({ data }) => {
@@ -165,7 +249,7 @@ export function PageList({
   };
 
   if (Platform.OS === "web") {
-    return <View>{renderBranch(null, 0)}</View>;
+    return <RNView>{renderBranch(null, 0)}</RNView>;
   }
 
   return (
@@ -181,30 +265,56 @@ const styles = StyleSheet.create({
   },
   pageItem: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: "rgba(0, 0, 0, 0.1)",
+    paddingVertical: 9,
+    paddingHorizontal: 8,
+    marginHorizontal: 6,
+    marginVertical: 1,
   },
-  pageTitle: {
-    fontSize: 16,
-    lineHeight: 24,
+  rowLeft: {
+    flexDirection: "row",
+    alignItems: "center",
     flex: 1,
   },
+  collapseButton: {
+    width: 24,
+    height: 24,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 4,
+  },
+  collapsePlaceholder: {
+    width: 24,
+    height: 24,
+    marginRight: 4,
+  },
+  inlineAddSubpageButton: {
+    padding: 8,
+    marginLeft: 2,
+  },
+  titlePressable: {
+    flex: 1,
+    paddingVertical: 2,
+  },
+  pageTitle: {
+    fontSize: 17,
+    lineHeight: 23,
+    fontWeight: "600",
+  },
   subPageTitle: {
-    opacity: 0.9,
+    opacity: 0.88,
+    fontSize: 16,
+    fontWeight: "500",
   },
   activePageItem: {
-    opacity: 0.8,
+    opacity: 0.75,
   },
   dragHandle: {
     padding: 8,
-    marginLeft: 4,
+    marginLeft: 2,
   },
   deleteButton: {
     padding: 8,
-    marginLeft: 4,
+    marginLeft: 0,
   },
 });

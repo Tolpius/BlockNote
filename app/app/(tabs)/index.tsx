@@ -41,14 +41,25 @@ export default function HomeScreen() {
     );
   };
 
+  const handleAddSubpage = (parentId: string) => {
+    addPage("Untitled", parentId);
+  };
+
   return (
     <View style={styles.container}>
-      <Text style={styles.header}>My Pages</Text>
+      <View style={styles.headerBlock}>
+        <Text style={styles.header}>Private Files</Text>
+        <Text style={styles.subtitle}>
+          Drag to reorder, tap chevrons to collapse
+        </Text>
+      </View>
+
       <View style={styles.listContainer}>
         <PageList
           pages={pages}
           onPagePress={handlePagePress}
           onDeletePage={handleDeletePage}
+          onAddSubpage={handleAddSubpage}
           onReorderPages={reorderPages}
           onReorderRootPages={reorderRootPages}
           emptyComponent={<EmptyPageState />}
@@ -68,28 +79,40 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    paddingTop: 8,
+  },
+  headerBlock: {
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    paddingBottom: 8,
   },
   header: {
-    fontSize: 24,
+    fontSize: 30,
     fontWeight: "bold",
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 12,
+    letterSpacing: -0.4,
+  },
+  subtitle: {
+    fontSize: 13,
+    opacity: 0.62,
+    marginTop: 4,
   },
   listContainer: {
     flex: 1,
+    marginHorizontal: 6,
+    marginBottom: 8,
+    paddingVertical: 2,
   },
   newPageButton: {
     marginHorizontal: 16,
     marginVertical: 12,
-    paddingVertical: 12,
+    paddingVertical: 13,
     paddingHorizontal: 16,
-    borderRadius: 8,
+    borderRadius: 12,
     alignItems: "center",
   },
   newPageButtonText: {
     color: "#fff",
     fontSize: 16,
-    fontWeight: "600",
+    fontWeight: "700",
   },
 });
