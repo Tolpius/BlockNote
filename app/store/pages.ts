@@ -5,6 +5,7 @@ export type Page = {
   id: string;
   title: string;
   parentId: string | null;
+  position: number;
 };
 
 export type Block = {
@@ -27,6 +28,7 @@ interface PagesStore {
   addPage: (title?: string, parentId?: string | null) => Promise<Page | null>;
   deletePage: (id: string) => Promise<void>;
   updatePage: (id: string, title: string) => Promise<void>;
+  reorderRootPages: (pageIds: string[]) => Promise<void>;
 
   // Block operations
   addBlock: (pageId: string) => Promise<void>;
@@ -67,10 +69,17 @@ export const usePagesStore = create<PagesStore>((set, get) => ({
 
   addPage: async (title = "Untitled", parentId = null) => {
     try {
+      const siblingPages = get().pages.filter((page) => page.parentId === parentId);
+      const nextPosition =
+        siblingPages.length > 0
+          ? Math.max(...siblingPages.map((page) => page.position)) + 1
+          : 0;
+
       const newPage: Page = {
         id: generateId(),
         title,
         parentId,
+        position: nextPosition,
       };
 
       // Save to database first
@@ -132,6 +141,44 @@ export const usePagesStore = create<PagesStore>((set, get) => ({
       }));
     } catch (error) {
       console.error("Failed to update page:", error);
+    }
+  },
+
+  reorderRootPages: async (pageIds) => {
+    try {
+      const state = get();
+      const rootPages = state.pages.filter((page) => page.parentId === null);
+      const rootIdSet = new Set(rootPages.map((page) => page.id));
+
+      // Keep only valid root IDs and append missing ones to avoid accidental loss.
+      const normalizedIds = pageIds.filter((id) => rootIdSet.has(id));
+      for (const page of rootPages) {
+        if (!normalizedIds.includes(page.id)) {
+          normalizedIds.push(page.id);
+        }
+      }
+
+      const positionById = new Map<string, number>();
+      normalizedIds.forEach((id, index) => {
+        positionById.set(id, index);
+      });
+
+      const updates = normalizedIds.map((id, index) => ({ id, position: index }));
+
+      set((currentState) => ({
+        pages: currentState.pages.map((page) => {
+          if (page.parentId !== null) return page;
+
+          const nextPosition = positionById.get(page.id);
+          return nextPosition === undefined
+            ? page
+            : { ...page, position: nextPosition };
+        }),
+      }));
+
+      await db.updatePagePositions(updates);
+    } catch (error) {
+      console.error("Failed to reorder root pages:", error);
     }
   },
 

@@ -20,6 +20,38 @@ async function ensurePagesColumns(database: SQLite.SQLiteDatabase) {
   if (!existing.has("parentId")) {
     await database.execAsync("ALTER TABLE pages ADD COLUMN parentId TEXT;");
   }
+
+  if (!existing.has("position")) {
+    await database.execAsync("ALTER TABLE pages ADD COLUMN position INTEGER;");
+  }
+
+  const pages = await database.getAllAsync<{
+    id: string;
+    parentId: string | null;
+    position: number | null;
+  }>(
+    "SELECT id, parentId, position FROM pages ORDER BY created_at ASC, id ASC;",
+  );
+
+  const nextPositionByParent = new Map<string | null, number>();
+
+  for (const page of pages) {
+    const parentKey = page.parentId ?? null;
+    const nextPosition = nextPositionByParent.get(parentKey) ?? 0;
+
+    if (page.position === null || page.position === undefined) {
+      await database.runAsync("UPDATE pages SET position = ? WHERE id = ?;", [
+        nextPosition,
+        page.id,
+      ]);
+    }
+
+    const usedPosition =
+      page.position === null || page.position === undefined
+        ? nextPosition
+        : page.position;
+    nextPositionByParent.set(parentKey, usedPosition + 1);
+  }
 }
 
 export async function initializeDatabase(): Promise<void> {
@@ -32,6 +64,7 @@ export async function initializeDatabase(): Promise<void> {
       id TEXT PRIMARY KEY,
       title TEXT NOT NULL,
       parentId TEXT,
+      position INTEGER,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     );
   `);
@@ -54,7 +87,7 @@ export async function initializeDatabase(): Promise<void> {
 export async function getAllPages(): Promise<Page[]> {
   const database = await getDatabase();
   const result = await database.getAllAsync(
-    "SELECT id, title, parentId FROM pages ORDER BY created_at DESC;",
+    "SELECT id, title, parentId, position FROM pages ORDER BY parentId ASC, position ASC, created_at ASC;",
   );
   return result as Page[];
 }
@@ -79,9 +112,32 @@ export async function getAllBlocks(): Promise<Block[]> {
 export async function insertPage(page: Page): Promise<void> {
   const database = await getDatabase();
   await database.runAsync(
-    "INSERT INTO pages (id, title, parentId) VALUES (?, ?, ?);",
-    [page.id, page.title, page.parentId],
+    "INSERT INTO pages (id, title, parentId, position) VALUES (?, ?, ?, ?);",
+    [page.id, page.title, page.parentId, page.position],
   );
+}
+
+export async function updatePagePositions(
+  updates: Array<{ id: string; position: number }>,
+): Promise<void> {
+  if (updates.length === 0) return;
+
+  const database = await getDatabase();
+  await database.execAsync("BEGIN TRANSACTION;");
+
+  try {
+    for (const update of updates) {
+      await database.runAsync("UPDATE pages SET position = ? WHERE id = ?;", [
+        update.position,
+        update.id,
+      ]);
+    }
+
+    await database.execAsync("COMMIT;");
+  } catch (error) {
+    await database.execAsync("ROLLBACK;");
+    throw error;
+  }
 }
 
 export async function updatePageTitle(
