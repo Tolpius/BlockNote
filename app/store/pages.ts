@@ -28,6 +28,7 @@ interface PagesStore {
   addPage: (title?: string, parentId?: string | null) => Promise<Page | null>;
   deletePage: (id: string) => Promise<void>;
   updatePage: (id: string, title: string) => Promise<void>;
+  reorderPages: (parentId: string | null, pageIds: string[]) => Promise<void>;
   reorderRootPages: (pageIds: string[]) => Promise<void>;
 
   // Block operations
@@ -146,15 +147,17 @@ export const usePagesStore = create<PagesStore>((set, get) => ({
     }
   },
 
-  reorderRootPages: async (pageIds) => {
+  reorderPages: async (parentId, pageIds) => {
     try {
       const state = get();
-      const rootPages = state.pages.filter((page) => page.parentId === null);
-      const rootIdSet = new Set(rootPages.map((page) => page.id));
+      const siblingPages = state.pages.filter(
+        (page) => page.parentId === parentId,
+      );
+      const siblingIdSet = new Set(siblingPages.map((page) => page.id));
 
-      // Keep only valid root IDs and append missing ones to avoid accidental loss.
-      const normalizedIds = pageIds.filter((id) => rootIdSet.has(id));
-      for (const page of rootPages) {
+      // Keep only valid sibling IDs and append missing ones to avoid accidental loss.
+      const normalizedIds = pageIds.filter((id) => siblingIdSet.has(id));
+      for (const page of siblingPages) {
         if (!normalizedIds.includes(page.id)) {
           normalizedIds.push(page.id);
         }
@@ -172,7 +175,7 @@ export const usePagesStore = create<PagesStore>((set, get) => ({
 
       set((currentState) => ({
         pages: currentState.pages.map((page) => {
-          if (page.parentId !== null) return page;
+          if (page.parentId !== parentId) return page;
 
           const nextPosition = positionById.get(page.id);
           return nextPosition === undefined
@@ -183,8 +186,12 @@ export const usePagesStore = create<PagesStore>((set, get) => ({
 
       await db.updatePagePositions(updates);
     } catch (error) {
-      console.error("Failed to reorder root pages:", error);
+      console.error("Failed to reorder pages:", error);
     }
+  },
+
+  reorderRootPages: async (pageIds) => {
+    await get().reorderPages(null, pageIds);
   },
 
   addBlock: async (pageId) => {

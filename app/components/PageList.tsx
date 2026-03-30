@@ -1,6 +1,8 @@
-import { FlatList, Platform, StyleSheet, TouchableOpacity } from "react-native";
+import { Platform, StyleSheet, TouchableOpacity } from "react-native";
 import { SymbolView } from "expo-symbols";
 import DraggableFlatList, {
+  NestableDraggableFlatList,
+  NestableScrollContainer,
   RenderItemParams,
   ScaleDecorator,
 } from "react-native-draggable-flatlist";
@@ -12,36 +14,16 @@ interface PageListProps {
   pages: Page[];
   onPagePress?: (pageId: string) => void;
   onDeletePage?: (pageId: string) => void;
+  onReorderPages?: (parentId: string | null, pageIds: string[]) => void;
   onReorderRootPages?: (pageIds: string[]) => void;
   emptyComponent?: React.ReactNode;
 }
-
-type PageRow = {
-  page: Page;
-  depth: number;
-};
 
 function sortByPositionThenTitle(a: Page, b: Page) {
   if (a.position !== b.position) {
     return a.position - b.position;
   }
   return a.title.localeCompare(b.title);
-}
-
-function buildChildrenRows(
-  pagesByParent: Map<string | null, Page[]>,
-  parentId: string,
-  depth: number,
-): PageRow[] {
-  const children = pagesByParent.get(parentId) ?? [];
-  const rows: PageRow[] = [];
-
-  for (const child of children) {
-    rows.push({ page: child, depth });
-    rows.push(...buildChildrenRows(pagesByParent, child.id, depth + 1));
-  }
-
-  return rows;
 }
 
 function buildPagesByParent(pages: Page[]): Map<string | null, Page[]> {
@@ -65,6 +47,7 @@ export function PageList({
   pages,
   onPagePress,
   onDeletePage,
+  onReorderPages,
   onReorderRootPages,
   emptyComponent,
 }: PageListProps) {
@@ -74,6 +57,13 @@ export function PageList({
   if (pages.length === 0 && emptyComponent) {
     return <>{emptyComponent}</>;
   }
+
+  const handleReorder = (parentId: string | null, pageIds: string[]) => {
+    onReorderPages?.(parentId, pageIds);
+    if (parentId === null) {
+      onReorderRootPages?.(pageIds);
+    }
+  };
 
   const renderRow = ({
     item,
@@ -103,7 +93,7 @@ export function PageList({
         {item.title}
       </Text>
 
-      {depth === 0 && drag && (
+      {drag && (
         <TouchableOpacity style={styles.dragHandle} onLongPress={drag}>
           <SymbolView
             name={{
@@ -136,59 +126,51 @@ export function PageList({
     </View>
   );
 
-  const renderRootItem = ({ item, drag, isActive }: RenderItemParams<Page>) => {
-    const childRows = buildChildrenRows(pagesByParent, item.id, 1);
+  const renderBranch = (parentId: string | null, depth: number) => {
+    const siblings = pagesByParent.get(parentId) ?? [];
+    if (siblings.length === 0) return null;
+
+    if (Platform.OS === "web") {
+      return siblings.map((item) => (
+        <View key={item.id}>
+          {renderRow({ item, depth })}
+          {renderBranch(item.id, depth + 1)}
+        </View>
+      ));
+    }
 
     return (
-      <ScaleDecorator>
-        <View>
-          {renderRow({ item, depth: 0, drag, isActive })}
-          {childRows.map((childRow) => (
-            <View key={childRow.page.id}>
-              {renderRow({ item: childRow.page, depth: childRow.depth })}
+      <NestableDraggableFlatList
+        key={`branch-${parentId ?? "root"}`}
+        data={siblings}
+        keyExtractor={(item) => item.id}
+        renderItem={({ item, drag, isActive }: RenderItemParams<Page>) => (
+          <ScaleDecorator>
+            <View>
+              {renderRow({ item, depth, drag, isActive })}
+              {renderBranch(item.id, depth + 1)}
             </View>
-          ))}
-        </View>
-      </ScaleDecorator>
+          </ScaleDecorator>
+        )}
+        onDragEnd={({ data }) => {
+          handleReorder(
+            parentId,
+            data.map((item) => item.id),
+          );
+        }}
+        scrollEnabled={false}
+        bounces={false}
+      />
     );
   };
 
   if (Platform.OS === "web") {
-    return (
-      <FlatList
-        data={rootPages}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) => {
-          const childRows = buildChildrenRows(pagesByParent, item.id, 1);
-          return (
-            <View>
-              {renderRow({ item, depth: 0 })}
-              {childRows.map((childRow) => (
-                <View key={childRow.page.id}>
-                  {renderRow({ item: childRow.page, depth: childRow.depth })}
-                </View>
-              ))}
-            </View>
-          );
-        }}
-        scrollEnabled={true}
-        bounces={true}
-      />
-    );
+    return <View>{renderBranch(null, 0)}</View>;
   }
 
   return (
     <GestureHandlerRootView style={styles.gestureRoot}>
-      <DraggableFlatList
-        data={rootPages}
-        keyExtractor={(item) => item.id}
-        renderItem={renderRootItem}
-        onDragEnd={({ data }) => {
-          onReorderRootPages?.(data.map((item) => item.id));
-        }}
-        scrollEnabled={true}
-        bounces={true}
-      />
+      <NestableScrollContainer>{renderBranch(null, 0)}</NestableScrollContainer>
     </GestureHandlerRootView>
   );
 }

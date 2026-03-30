@@ -12,6 +12,7 @@ export default function HomeScreen() {
   const pages = usePagesStore((state) => state.pages);
   const addPage = usePagesStore((state) => state.addPage);
   const deletePage = usePagesStore((state) => state.deletePage);
+  const reorderPages = usePagesStore((state) => state.reorderPages);
   const reorderRootPages = usePagesStore((state) => state.reorderRootPages);
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? "light"];
@@ -48,6 +49,7 @@ export default function HomeScreen() {
           pages={pages}
           onPagePress={handlePagePress}
           onDeletePage={handleDeletePage}
+          onReorderPages={reorderPages}
           onReorderRootPages={reorderRootPages}
           emptyComponent={<EmptyPageState />}
         />
