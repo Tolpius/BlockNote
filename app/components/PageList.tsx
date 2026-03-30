@@ -110,12 +110,16 @@ export function PageList({
     drag?: () => void;
     isActive?: boolean;
   }) => (
-    <RNView
+    <TouchableOpacity
       style={[
         styles.pageItem,
         { marginLeft: depth * 14 },
         isActive && styles.activePageItem,
       ]}
+      onPress={() => onPagePress?.(item.id)}
+      onLongPress={drag}
+      delayLongPress={180}
+      activeOpacity={0.8}
     >
       <RNView style={styles.rowLeft}>
         {hasChildren(item.id) ? (
@@ -150,29 +154,12 @@ export function PageList({
           </TouchableOpacity>
         )}
 
-        <TouchableOpacity
-          style={styles.titlePressable}
-          onPress={() => onPagePress?.(item.id)}
-        >
+        <RNView style={styles.titlePressable}>
           <Text style={[styles.pageTitle, depth > 0 && styles.subPageTitle]}>
             {item.title}
           </Text>
-        </TouchableOpacity>
+        </RNView>
       </RNView>
-
-      {drag && (
-        <TouchableOpacity style={styles.dragHandle} onLongPress={drag}>
-          <SymbolView
-            name={{
-              ios: "line.3.horizontal",
-              android: "drag_indicator",
-              web: "drag_indicator",
-            }}
-            tintColor="#999"
-            size={20}
-          />
-        </TouchableOpacity>
-      )}
 
       {onAddSubpage && (
         <TouchableOpacity
@@ -203,7 +190,7 @@ export function PageList({
           />
         </TouchableOpacity>
       )}
-    </RNView>
+    </TouchableOpacity>
   );
 
   const renderBranch = (parentId: string | null, depth: number) => {
@@ -308,10 +295,6 @@ const styles = StyleSheet.create({
   },
   activePageItem: {
     opacity: 0.75,
-  },
-  dragHandle: {
-    padding: 8,
-    marginLeft: 2,
   },
   deleteButton: {
     padding: 8,
