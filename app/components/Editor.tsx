@@ -117,6 +117,7 @@ export function Editor({ page }: EditorProps) {
   const cssInjectedRef = useRef(false);
   const slashProcessingRef = useRef(false);
   const pendingSlashCommandRef = useRef<string | null>(null);
+  const recentSlashCommandsRef = useRef<Map<string, number>>(new Map());
 
   const editor = useEditorBridge({
     autofocus: false,
@@ -170,6 +171,14 @@ export function Editor({ page }: EditorProps) {
           if (!match) continue;
 
           const commandKey = `${page.id}:${i}:${line}`;
+          const now = Date.now();
+          const handledAt = recentSlashCommandsRef.current.get(commandKey);
+
+          // Ignore duplicate command events that can arrive shortly after a successful run.
+          if (handledAt && now - handledAt < 5000) {
+            continue;
+          }
+
           if (pendingSlashCommandRef.current === commandKey) {
             latestDocRef.current = content;
             updateBlockRef.current(block.id, JSON.stringify(content));
@@ -213,6 +222,7 @@ export function Editor({ page }: EditorProps) {
             latestDocRef.current = nextDoc;
             editor.setContent(nextDoc);
             updateBlockRef.current(block.id, JSON.stringify(nextDoc));
+            recentSlashCommandsRef.current.set(commandKey, Date.now());
 
             pendingSlashCommandRef.current = null;
             slashProcessingRef.current = false;
@@ -231,6 +241,7 @@ export function Editor({ page }: EditorProps) {
           latestDocRef.current = nextDoc;
           editor.setContent(nextDoc);
           updateBlockRef.current(block.id, JSON.stringify(nextDoc));
+          recentSlashCommandsRef.current.set(commandKey, Date.now());
           pendingSlashCommandRef.current = null;
 
           break;

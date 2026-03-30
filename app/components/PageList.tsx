@@ -92,7 +92,11 @@ export function PageList({
       darkColor="rgba(255, 255, 255, 0.1)"
     >
       <Text
-        style={[styles.pageTitle, { marginLeft: depth * 16 }, depth > 0 && styles.subPageTitle]}
+        style={[
+          styles.pageTitle,
+          { marginLeft: depth * 16 },
+          depth > 0 && styles.subPageTitle,
+        ]}
         onPress={() => onPagePress?.(item.id)}
       >
         {depth > 0 ? "↳ " : "• "}
@@ -140,7 +144,9 @@ export function PageList({
         <View>
           {renderRow({ item, depth: 0, drag, isActive })}
           {childRows.map((childRow) => (
-            <View key={childRow.page.id}>{renderRow({ item: childRow.page, depth: childRow.depth })}</View>
+            <View key={childRow.page.id}>
+              {renderRow({ item: childRow.page, depth: childRow.depth })}
+            </View>
           ))}
         </View>
       </ScaleDecorator>

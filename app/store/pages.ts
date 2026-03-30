@@ -69,7 +69,9 @@ export const usePagesStore = create<PagesStore>((set, get) => ({
 
   addPage: async (title = "Untitled", parentId = null) => {
     try {
-      const siblingPages = get().pages.filter((page) => page.parentId === parentId);
+      const siblingPages = get().pages.filter(
+        (page) => page.parentId === parentId,
+      );
       const nextPosition =
         siblingPages.length > 0
           ? Math.max(...siblingPages.map((page) => page.position)) + 1
@@ -163,7 +165,10 @@ export const usePagesStore = create<PagesStore>((set, get) => ({
         positionById.set(id, index);
       });
 
-      const updates = normalizedIds.map((id, index) => ({ id, position: index }));
+      const updates = normalizedIds.map((id, index) => ({
+        id,
+        position: index,
+      }));
 
       set((currentState) => ({
         pages: currentState.pages.map((page) => {
