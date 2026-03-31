@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import {
+  Alert,
   Platform,
   StyleSheet,
   TouchableOpacity,
@@ -20,6 +21,7 @@ interface PageListProps {
   pages: Page[];
   onPagePress?: (pageId: string) => void;
   onDeletePage?: (pageId: string) => void;
+  onRenamePage?: (pageId: string) => void;
   onAddSubpage?: (parentId: string) => void;
   onReorderPages?: (parentId: string | null, pageIds: string[]) => void;
   onReorderRootPages?: (pageIds: string[]) => void;
@@ -54,6 +56,7 @@ export function PageList({
   pages,
   onPagePress,
   onDeletePage,
+  onRenamePage,
   onAddSubpage,
   onReorderPages,
   onReorderRootPages,
@@ -97,6 +100,40 @@ export function PageList({
     if (parentId === null) {
       onReorderRootPages?.(pageIds);
     }
+  };
+
+  const openPageMenu = (page: Page) => {
+    const options = [] as {
+      text: string;
+      onPress?: () => void;
+      style?: "default" | "cancel" | "destructive";
+    }[];
+
+    if (onRenamePage) {
+      options.push({
+        text: "Rename",
+        onPress: () => onRenamePage(page.id),
+      });
+    }
+
+    if (onAddSubpage) {
+      options.push({
+        text: "Create Subpage",
+        onPress: () => onAddSubpage(page.id),
+      });
+    }
+
+    if (onDeletePage) {
+      options.push({
+        text: "Delete",
+        style: "destructive",
+        onPress: () => onDeletePage(page.id),
+      });
+    }
+
+    options.push({ text: "Cancel", style: "cancel" });
+
+    Alert.alert(page.title, "", options);
   };
 
   const renderRow = ({
@@ -174,18 +211,18 @@ export function PageList({
         </TouchableOpacity>
       )}
 
-      {onDeletePage && (
+      {(onRenamePage || onAddSubpage || onDeletePage) && (
         <TouchableOpacity
-          style={styles.deleteButton}
-          onPress={() => onDeletePage(item.id)}
+          style={styles.pageMenuButton}
+          onPress={() => openPageMenu(item)}
         >
           <SymbolView
             name={{
-              ios: "trash.fill",
-              android: "delete",
-              web: "delete",
+              ios: "ellipsis",
+              android: "more_horiz",
+              web: "more_horiz",
             }}
-            tintColor="#999"
+            tintColor="#7b7b81"
             size={18}
           />
         </TouchableOpacity>
@@ -296,7 +333,7 @@ const styles = StyleSheet.create({
   activePageItem: {
     opacity: 0.75,
   },
-  deleteButton: {
+  pageMenuButton: {
     padding: 8,
     marginLeft: 0,
   },
