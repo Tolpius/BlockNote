@@ -25,12 +25,17 @@ async function ensurePagesColumns(database: SQLite.SQLiteDatabase) {
     await database.execAsync("ALTER TABLE pages ADD COLUMN position INTEGER;");
   }
 
+  if (!existing.has("lastVisited")) {
+    await database.execAsync("ALTER TABLE pages ADD COLUMN lastVisited TEXT;");
+  }
+
   const pages = await database.getAllAsync<{
     id: string;
     parentId: string | null;
     position: number | null;
+    lastVisited: string | null;
   }>(
-    "SELECT id, parentId, position FROM pages ORDER BY created_at ASC, id ASC;",
+    "SELECT id, parentId, position, lastVisited FROM pages ORDER BY created_at ASC, id ASC;",
   );
 
   const nextPositionByParent = new Map<string | null, number>();
@@ -112,8 +117,8 @@ export async function getAllBlocks(): Promise<Block[]> {
 export async function insertPage(page: Page): Promise<void> {
   const database = await getDatabase();
   await database.runAsync(
-    "INSERT INTO pages (id, title, parentId, position) VALUES (?, ?, ?, ?);",
-    [page.id, page.title, page.parentId, page.position],
+    "INSERT INTO pages (id, title, parentId, position, lastVisited) VALUES (?, ?, ?, ?, ?);",
+    [page.id, page.title, page.parentId, page.position, page.lastVisited],
   );
 }
 
@@ -147,6 +152,17 @@ export async function updatePageTitle(
   const database = await getDatabase();
   await database.runAsync("UPDATE pages SET title = ? WHERE id = ?;", [
     title,
+    id,
+  ]);
+}
+
+export async function updatePageLastVisited(
+  id: string,
+  lastVisited: string,
+): Promise<void> {
+  const database = await getDatabase();
+  await database.runAsync("UPDATE pages SET lastVisited = ? WHERE id = ?;", [
+    lastVisited,
     id,
   ]);
 }

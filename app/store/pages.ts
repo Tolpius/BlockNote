@@ -6,6 +6,7 @@ export type Page = {
   title: string;
   parentId: string | null;
   position: number;
+  lastVisited: string | null;
 };
 
 export type Block = {
@@ -28,6 +29,7 @@ interface PagesStore {
   addPage: (title?: string, parentId?: string | null) => Promise<Page | null>;
   deletePage: (id: string) => Promise<void>;
   updatePage: (id: string, title: string) => Promise<void>;
+  visitPage: (id: string) => Promise<void>;
   reorderPages: (parentId: string | null, pageIds: string[]) => Promise<void>;
   reorderRootPages: (pageIds: string[]) => Promise<void>;
 
@@ -83,6 +85,7 @@ export const usePagesStore = create<PagesStore>((set, get) => ({
         title,
         parentId,
         position: nextPosition,
+        lastVisited: null,
       };
 
       // Save to database first
@@ -144,6 +147,22 @@ export const usePagesStore = create<PagesStore>((set, get) => ({
       }));
     } catch (error) {
       console.error("Failed to update page:", error);
+    }
+  },
+
+  visitPage: async (id) => {
+    try {
+      const lastVisited = new Date().toISOString();
+
+      await db.updatePageLastVisited(id, lastVisited);
+
+      set((state) => ({
+        pages: state.pages.map((page) =>
+          page.id === id ? { ...page, lastVisited } : page,
+        ),
+      }));
+    } catch (error) {
+      console.error("Failed to update page visit:", error);
     }
   },
 

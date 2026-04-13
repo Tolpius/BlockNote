@@ -1,11 +1,13 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
   Alert,
   Modal,
   Platform,
+  ScrollView,
   StyleSheet,
   TextInput,
   TouchableOpacity,
+  View as RNView,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { usePagesStore } from "@/store/pages";
@@ -28,6 +30,21 @@ export default function HomeScreen() {
   const [isRenameModalVisible, setIsRenameModalVisible] = useState(false);
   const [renamePageId, setRenamePageId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
+
+  const recentPages = useMemo(() => {
+    return [...pages]
+      .filter((page) => page.lastVisited !== null)
+      .sort((a, b) => {
+        const aVisited = a.lastVisited ? new Date(a.lastVisited).getTime() : 0;
+        const bVisited = b.lastVisited ? new Date(b.lastVisited).getTime() : 0;
+        if (aVisited !== bVisited) {
+          return bVisited - aVisited;
+        }
+
+        return b.position - a.position;
+      })
+      .slice(0, 8);
+  }, [pages]);
 
   const handlePagePress = (pageId: string) => {
     router.push(`/${pageId}`);
@@ -86,7 +103,7 @@ export default function HomeScreen() {
         { text: "Cancel", style: "cancel" },
         {
           text: "Save",
-          onPress: (value) => {
+          onPress: (value?: string) => {
             const trimmed = value?.trim() ?? "";
             if (trimmed.length > 0 && trimmed !== page.title) {
               updatePage(pageId, trimmed);
@@ -132,6 +149,34 @@ export default function HomeScreen() {
           Drag to reorder, tap chevrons to collapse
         </Text>
       </View>
+
+      {recentPages.length > 0 ? (
+        <View style={styles.recentSection}>
+          <Text style={styles.sectionLabel}>Zuletzt geöffnet</Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.recentRail}
+          >
+            {recentPages.map((page) => (
+              <TouchableOpacity
+                key={page.id}
+                style={styles.recentCard}
+                activeOpacity={0.85}
+                onPress={() => handlePagePress(page.id)}
+              >
+                <RNView style={styles.recentCardGlow} />
+                <Text style={styles.recentCardTitle} numberOfLines={2}>
+                  {page.title}
+                </Text>
+                <Text style={styles.recentCardMeta} numberOfLines={1}>
+                  {page.parentId ? "Subpage" : "Root page"}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+      ) : null}
 
       <View style={styles.listContainer}>
         <PageList
@@ -212,6 +257,57 @@ const styles = StyleSheet.create({
     fontSize: 13,
     opacity: 0.62,
     marginTop: 4,
+  },
+  recentSection: {
+    marginTop: 8,
+    marginBottom: 4,
+  },
+  sectionLabel: {
+    fontSize: 14,
+    fontWeight: "700",
+    letterSpacing: 0.2,
+    textTransform: "uppercase",
+    opacity: 0.58,
+    paddingHorizontal: 16,
+    marginBottom: 10,
+  },
+  recentRail: {
+    paddingHorizontal: 16,
+    paddingBottom: 2,
+    gap: 12,
+  },
+  recentCard: {
+    width: 168,
+    minHeight: 116,
+    borderRadius: 20,
+    padding: 14,
+    overflow: "hidden",
+    backgroundColor: "rgba(10,132,255,0.10)",
+    borderWidth: 1,
+    borderColor: "rgba(10,132,255,0.12)",
+    justifyContent: "space-between",
+  },
+  recentCardGlow: {
+    position: "absolute",
+    top: -32,
+    right: -36,
+    width: 92,
+    height: 92,
+    borderRadius: 999,
+    backgroundColor: "rgba(10,132,255,0.16)",
+  },
+  recentCardTitle: {
+    fontSize: 18,
+    lineHeight: 22,
+    fontWeight: "700",
+    letterSpacing: -0.2,
+    paddingRight: 8,
+  },
+  recentCardMeta: {
+    fontSize: 12,
+    fontWeight: "600",
+    opacity: 0.58,
+    marginTop: 10,
   },
   listContainer: {
     flex: 1,

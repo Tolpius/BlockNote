@@ -9,6 +9,7 @@ export default function PageDetailScreen() {
   const { pageId } = useLocalSearchParams<{ pageId: string }>();
   const pages = usePagesStore((state) => state.pages);
   const addBlock = usePagesStore((state) => state.addBlock);
+  const visitPage = usePagesStore((state) => state.visitPage);
 
   // Find the page
   const page = pages.find((p) => p.id === pageId);
@@ -21,6 +22,12 @@ export default function PageDetailScreen() {
       addBlock(page.id);
     }
   }, [addBlock, blocks.length, page]);
+
+  useEffect(() => {
+    if (page) {
+      visitPage(page.id);
+    }
+  }, [page?.id, visitPage]);
 
   // Render page not found
   if (!page) {
